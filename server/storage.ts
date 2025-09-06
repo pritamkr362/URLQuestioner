@@ -26,10 +26,14 @@ export class MemStorage implements IStorage {
     const session: ContentSession = { 
       ...insertSession, 
       id,
+      url: insertSession.url || null,
       title: insertSession.title || null,
+      extractedContent: insertSession.extractedContent || null,
       wordCount: insertSession.wordCount || null,
       readTime: insertSession.readTime || null,
       modelUsed: insertSession.modelUsed || null,
+      sourceType: insertSession.sourceType || "url",
+      fileName: insertSession.fileName || null,
       createdAt: new Date() 
     };
     this.contentSessions.set(id, session);

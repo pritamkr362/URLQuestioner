@@ -5,13 +5,15 @@ import { z } from "zod";
 
 export const contentSessions = pgTable("content_sessions", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
-  url: text("url").notNull(),
+  url: text("url"), // Optional - null for PDF uploads and topic-only sessions
   title: text("title"),
   topic: text("topic").notNull(),
-  extractedContent: text("extracted_content").notNull(),
+  extractedContent: text("extracted_content"), // Optional - null for topic-only sessions
   wordCount: integer("word_count"),
   readTime: integer("read_time"),
   modelUsed: text("model_used"),
+  sourceType: text("source_type").notNull().default("url"), // 'url', 'pdf', or 'topic-only'
+  fileName: text("file_name"), // For PDF uploads
   createdAt: timestamp("created_at").default(sql`now()`),
 });
 
