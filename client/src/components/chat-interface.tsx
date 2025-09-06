@@ -2,6 +2,7 @@ import { useState, useRef, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
@@ -17,11 +18,21 @@ interface AskQuestionResponse {
   assistantMessage: Message;
 }
 
+interface ModelsResponse {
+  models: string[];
+}
+
 export default function ChatInterface({ sessionId, topic }: ChatInterfaceProps) {
   const [question, setQuestion] = useState("");
+  const [selectedModel, setSelectedModel] = useState<string>("auto");
+  const [showModelSelector, setShowModelSelector] = useState(false);
   const scrollAreaRef = useRef<HTMLDivElement>(null);
   const { toast } = useToast();
   const queryClient = useQueryClient();
+
+  const { data: modelsData } = useQuery<ModelsResponse>({
+    queryKey: ['/api/models'],
+  });
 
   const { data: messages = [], isLoading } = useQuery<Message[]>({
     queryKey: ['/api/sessions', sessionId, 'messages'],
@@ -29,7 +40,10 @@ export default function ChatInterface({ sessionId, topic }: ChatInterfaceProps) 
 
   const askMutation = useMutation({
     mutationFn: async (q: string) => {
-      const response = await apiRequest("POST", `/api/sessions/${sessionId}/ask`, { question: q });
+      const response = await apiRequest("POST", `/api/sessions/${sessionId}/ask`, { 
+        question: q, 
+        preferredModel: selectedModel === "auto" ? undefined : selectedModel || undefined 
+      });
       return response.json() as Promise<AskQuestionResponse>;
     },
     onSuccess: () => {
@@ -54,6 +68,10 @@ export default function ChatInterface({ sessionId, topic }: ChatInterfaceProps) 
 
   const handleQuickQuestion = (quickQ: string) => {
     askMutation.mutate(quickQ);
+  };
+
+  const formatModelName = (model: string) => {
+    return model.split('/').pop()?.replace(':free', ' (Free)') || model;
   };
 
   const formatTime = (timestamp: Date | string) => {
@@ -123,12 +141,18 @@ export default function ChatInterface({ sessionId, topic }: ChatInterfaceProps) 
                     {message.content}
                   </div>
                   <div
-                    className={`text-xs mt-1 ${
+                    className={`text-xs mt-1 flex justify-between items-center ${
                       message.role === 'user' ? 'opacity-75' : 'text-muted-foreground'
                     }`}
-                    data-testid="text-message-timestamp"
                   >
-                    {formatTime(message.timestamp!)}
+                    <span data-testid="text-message-timestamp">
+                      {formatTime(message.timestamp!)}
+                    </span>
+                    {message.role === 'assistant' && message.modelUsed && (
+                      <span className="text-xs opacity-75" data-testid="text-model-used">
+                        {formatModelName(message.modelUsed)}
+                      </span>
+                    )}
                   </div>
                 </div>
               </div>
@@ -152,6 +176,36 @@ export default function ChatInterface({ sessionId, topic }: ChatInterfaceProps) 
       
       {/* Message Input */}
       <div className="p-6 border-t border-border">
+        {/* Model Selector */}
+        {showModelSelector && (
+          <div className="mb-4 p-3 bg-muted rounded-lg">
+            <div className="flex items-center justify-between mb-2">
+              <span className="text-sm font-medium text-foreground">Choose AI Model</span>
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => setShowModelSelector(false)}
+                className="h-6 w-6 p-0"
+              >
+                <i className="fas fa-times text-xs"></i>
+              </Button>
+            </div>
+            <Select value={selectedModel} onValueChange={setSelectedModel}>
+              <SelectTrigger className="w-full" data-testid="select-chat-model">
+                <SelectValue placeholder="Auto-select best model" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="auto">Auto-select (Recommended)</SelectItem>
+                {modelsData?.models.map((model) => (
+                  <SelectItem key={model} value={model}>
+                    {formatModelName(model)}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+        )}
+        
         <form onSubmit={handleSubmit} className="flex space-x-2">
           <Input
             type="text"
@@ -162,6 +216,16 @@ export default function ChatInterface({ sessionId, topic }: ChatInterfaceProps) 
             className="flex-1 text-sm"
             data-testid="input-question"
           />
+          <Button
+            type="button"
+            variant="outline"
+            onClick={() => setShowModelSelector(!showModelSelector)}
+            disabled={askMutation.isPending}
+            className="px-3"
+            data-testid="button-model-selector"
+          >
+            <i className="fas fa-cog text-sm"></i>
+          </Button>
           <Button
             type="submit"
             disabled={!question.trim() || askMutation.isPending}

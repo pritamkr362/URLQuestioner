@@ -5,7 +5,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest } from "@/lib/queryClient";
-import { useMutation } from "@tanstack/react-query";
+import { useMutation, useQuery } from "@tanstack/react-query";
 
 interface UrlInputFormProps {
   onSessionCreated: (sessionId: string) => void;
@@ -20,31 +20,47 @@ interface ExtractContentResponse {
     extractedContent: string;
     wordCount: number;
     readTime: number;
+    modelUsed: string;
   };
   analysis: {
     summary: string;
     keyPoints: string[];
+    modelUsed: string;
   };
+}
+
+interface ModelsResponse {
+  models: string[];
 }
 
 export default function UrlInputForm({ onSessionCreated }: UrlInputFormProps) {
   const [url, setUrl] = useState("");
   const [topic, setTopic] = useState("");
+  const [selectedModel, setSelectedModel] = useState<string>("auto");
   const { toast } = useToast();
+
+  const { data: modelsData } = useQuery<ModelsResponse>({
+    queryKey: ['/api/models'],
+  });
 
   const extractMutation = useMutation({
     mutationFn: async () => {
-      const response = await apiRequest("POST", "/api/extract-content", { url, topic });
+      const response = await apiRequest("POST", "/api/extract-content", { 
+        url, 
+        topic, 
+        preferredModel: selectedModel === "auto" ? undefined : selectedModel || undefined 
+      });
       return response.json() as Promise<ExtractContentResponse>;
     },
     onSuccess: (data) => {
       toast({
         title: "Content extracted successfully!",
-        description: `Extracted ${data.session.wordCount} words from the URL.`,
+        description: `Extracted ${data.session.wordCount} words using ${data.analysis.modelUsed}.`,
       });
       onSessionCreated(data.session.id);
       setUrl("");
       setTopic("");
+      setSelectedModel("auto");
     },
     onError: (error) => {
       toast({
@@ -140,6 +156,25 @@ export default function UrlInputForm({ onSessionCreated }: UrlInputFormProps) {
               <SelectItem value="politics">Politics & Policy</SelectItem>
               <SelectItem value="environment">Environment</SelectItem>
               <SelectItem value="culture">Culture & Society</SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
+        
+        <div>
+          <Label htmlFor="model" className="block text-sm font-medium text-foreground mb-2">
+            AI Model (Optional)
+          </Label>
+          <Select value={selectedModel} onValueChange={setSelectedModel}>
+            <SelectTrigger data-testid="select-model">
+              <SelectValue placeholder="Auto-select best model" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="auto">Auto-select (Recommended)</SelectItem>
+              {modelsData?.models.map((model) => (
+                <SelectItem key={model} value={model}>
+                  {model.split('/').pop()?.replace(':free', ' (Free)') || model}
+                </SelectItem>
+              ))}
             </SelectContent>
           </Select>
         </div>
