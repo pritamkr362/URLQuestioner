@@ -25,7 +25,11 @@ export class MemStorage implements IStorage {
     const id = randomUUID();
     const session: ContentSession = { 
       ...insertSession, 
-      id, 
+      id,
+      title: insertSession.title || null,
+      wordCount: insertSession.wordCount || null,
+      readTime: insertSession.readTime || null,
+      modelUsed: insertSession.modelUsed || null,
       createdAt: new Date() 
     };
     this.contentSessions.set(id, session);
@@ -46,7 +50,8 @@ export class MemStorage implements IStorage {
     const id = randomUUID();
     const message: Message = { 
       ...insertMessage, 
-      id, 
+      id,
+      modelUsed: insertMessage.modelUsed || null,
       timestamp: new Date() 
     };
     this.messages.set(id, message);

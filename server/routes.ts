@@ -3,13 +3,13 @@ import { createServer, type Server } from "http";
 import { storage } from "./storage";
 import { insertContentSessionSchema, insertMessageSchema } from "@shared/schema";
 import { extractContentFromUrl } from "./services/scraper";
-import { analyzeContent, answerQuestion } from "./services/openai";
+import { analyzeContent, answerQuestion, AVAILABLE_MODELS } from "./services/openai";
 
 export async function registerRoutes(app: Express): Promise<Server> {
   // Extract and analyze content from URL
   app.post("/api/extract-content", async (req, res) => {
     try {
-      const { url, topic } = req.body;
+      const { url, topic, preferredModel } = req.body;
 
       if (!url || !topic) {
         return res.status(400).json({ message: "URL and topic are required" });
@@ -18,8 +18,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Extract content from URL
       const extractedContent = await extractContentFromUrl(url);
       
-      // Analyze content with OpenAI
-      const analysis = await analyzeContent(extractedContent, topic);
+      // Analyze content with AI
+      const analysis = await analyzeContent(extractedContent, topic, preferredModel);
 
       // Create content session
       const sessionData = insertContentSessionSchema.parse({
@@ -29,6 +29,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         extractedContent,
         wordCount: analysis.wordCount,
         readTime: analysis.readTime,
+        modelUsed: analysis.modelUsed,
       });
 
       const session = await storage.createContentSession(sessionData);
@@ -38,6 +39,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         analysis: {
           summary: analysis.summary,
           keyPoints: analysis.keyPoints,
+          modelUsed: analysis.modelUsed,
         }
       });
     } catch (error) {
@@ -77,7 +79,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.post("/api/sessions/:sessionId/ask", async (req, res) => {
     try {
       const { sessionId } = req.params;
-      const { question } = req.body;
+      const { question, preferredModel } = req.body;
 
       if (!question?.trim()) {
         return res.status(400).json({ message: "Question is required" });
@@ -98,10 +100,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
       );
 
       // Get AI response
-      const aiResponse = await answerQuestion(
+      const { answer, modelUsed } = await answerQuestion(
         question.trim(),
         session.extractedContent,
-        session.topic
+        session.topic,
+        preferredModel
       );
 
       // Save assistant message
@@ -109,7 +112,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
         insertMessageSchema.parse({
           sessionId,
           role: "assistant",
-          content: aiResponse,
+          content: answer,
+          modelUsed: modelUsed,
         })
       );
 
@@ -133,6 +137,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error("Get messages error:", error);
       res.status(500).json({ message: "Failed to get messages" });
+    }
+  });
+
+  // Get available AI models
+  app.get("/api/models", async (req, res) => {
+    try {
+      res.json({ models: AVAILABLE_MODELS });
+    } catch (error) {
+      console.error("Get models error:", error);
+      res.status(500).json({ message: "Failed to get available models" });
     }
   });
 
