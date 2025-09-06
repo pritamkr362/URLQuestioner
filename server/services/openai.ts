@@ -95,7 +95,7 @@ function splitContentIntoChunks(content: string, maxChunkSize: number = MAX_CHUN
   return chunks;
 }
 
-async function callWithFallback(messages: OpenRouterMessage[], preferredModel?: string): Promise<{ response: string; modelUsed: string }> {
+export async function callWithFallback(messages: OpenRouterMessage[], preferredModel?: string): Promise<{ response: string; modelUsed: string }> {
   const modelsToTry = preferredModel ? [preferredModel, ...AVAILABLE_MODELS.filter(m => m !== preferredModel)] : AVAILABLE_MODELS;
   
   let lastError: Error | null = null;

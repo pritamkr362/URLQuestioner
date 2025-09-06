@@ -1,5 +1,5 @@
 import { sql } from "drizzle-orm";
-import { pgTable, text, varchar, timestamp, integer } from "drizzle-orm/pg-core";
+import { pgTable, text, varchar, timestamp, integer, boolean } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
 
@@ -12,7 +12,8 @@ export const contentSessions = pgTable("content_sessions", {
   wordCount: integer("word_count"),
   readTime: integer("read_time"),
   modelUsed: text("model_used"),
-  sourceType: text("source_type").notNull().default("url"), // 'url', 'pdf', or 'topic-only'
+  sourceType: text("source_type").notNull().default("url"), // 'url', 'pdf', 'topic-only', 'mcq'
+  sessionType: text("session_type").notNull().default("chat"), // 'chat', 'mcq'
   fileName: text("file_name"), // For PDF uploads
   createdAt: timestamp("created_at").default(sql`now()`),
 });
@@ -36,7 +37,26 @@ export const insertMessageSchema = createInsertSchema(messages).omit({
   timestamp: true,
 });
 
+export const mcqs = pgTable("mcqs", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  sessionId: varchar("session_id").notNull().references(() => contentSessions.id),
+  customHeader: text("custom_header"),
+  questions: text("questions").notNull(), // JSON array of questions
+  includeAnswers: boolean("include_answers").notNull().default(false),
+  difficultyLevel: text("difficulty_level"), // 'easy', 'medium', 'hard'
+  numberOfQuestions: integer("number_of_questions").notNull().default(10),
+  subtopic: text("subtopic"), // For topic-only MCQs
+  createdAt: timestamp("created_at").default(sql`now()`),
+});
+
+export const insertMcqSchema = createInsertSchema(mcqs).omit({
+  id: true,
+  createdAt: true,
+});
+
 export type InsertContentSession = z.infer<typeof insertContentSessionSchema>;
 export type ContentSession = typeof contentSessions.$inferSelect;
 export type InsertMessage = z.infer<typeof insertMessageSchema>;
 export type Message = typeof messages.$inferSelect;
+export type InsertMcq = z.infer<typeof insertMcqSchema>;
+export type Mcq = typeof mcqs.$inferSelect;

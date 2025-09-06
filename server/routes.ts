@@ -119,8 +119,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
       );
 
       // Get conversation history for context
-      const existingMessages = storage.getSessionMessages(sessionId);
-      const conversationHistory = existingMessages.map(msg => ({
+      const existingMessages = await storage.getMessagesBySessionId(sessionId);
+      const conversationHistory = existingMessages.map((msg: any) => ({
         role: msg.role,
         content: msg.content
       }));
@@ -140,7 +140,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           sessionId,
           role: "assistant",
           content: answer,
-          modelUsed: modelUsed,
+          // modelUsed: modelUsed, // Remove this field as it doesn't exist in schema
         })
       );
 
