@@ -116,8 +116,8 @@ export async function analyzeContent(content: string, topic: string, preferredMo
     return {
       title: result.title || "Extracted Content",
       summary: result.summary || "",
-      wordCount: result.wordCount || content.split(/\s+/).length,
-      readTime: result.readTime || Math.ceil(content.split(/\s+/).length / 200),
+      wordCount: Math.floor(result.wordCount) || content.split(/\s+/).length,
+      readTime: Math.ceil(result.readTime) || Math.ceil(content.split(/\s+/).length / 200),
       keyPoints: result.keyPoints || [],
       modelUsed
     };
