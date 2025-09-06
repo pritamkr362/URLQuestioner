@@ -3,9 +3,10 @@ import { createServer, type Server } from "http";
 // @ts-ignore
 import multer from "multer";
 import { storage } from "./storage";
-import { insertContentSessionSchema, insertMessageSchema } from "@shared/schema";
+import { insertContentSessionSchema, insertMessageSchema, insertMcqSchema } from "@shared/schema";
 import { extractContentFromUrl } from "./services/scraper";
 import { analyzeContent, answerQuestion, AVAILABLE_MODELS } from "./services/openai";
+import { generateMCQs, formatMCQsForDisplay } from "./services/mcq-generator";
 import { extractTextFromPDF, cleanupTempFile } from "./services/pdf-processor";
 
 // Configure multer for PDF uploads
@@ -292,6 +293,233 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.status(500).json({ 
         message: error instanceof Error ? error.message : "Failed to export chat" 
       });
+    }
+  });
+
+  // Generate MCQs from URL
+  app.post("/api/generate-mcq-url", async (req, res) => {
+    try {
+      const { url, topic, customHeader, numberOfQuestions, difficultyLevel, includeAnswers, preferredModel } = req.body;
+
+      if (!url || !topic) {
+        return res.status(400).json({ message: "URL and topic are required" });
+      }
+
+      // Extract content from URL
+      const extractedContent = await extractContentFromUrl(url);
+      
+      // Generate MCQs
+      const { questions, modelUsed } = await generateMCQs({
+        content: extractedContent,
+        topic,
+        numberOfQuestions: numberOfQuestions || 10,
+        difficultyLevel: difficultyLevel || 'medium',
+        customHeader,
+        includeAnswers: includeAnswers || false,
+        preferredModel
+      });
+
+      // Create MCQ session
+      const sessionData = insertContentSessionSchema.parse({
+        url,
+        topic,
+        title: `MCQ: ${topic}`,
+        extractedContent,
+        wordCount: extractedContent.split(/\s+/).length,
+        modelUsed,
+        sourceType: "mcq",
+        sessionType: "mcq"
+      });
+
+      const session = await storage.createContentSession(sessionData);
+      
+      // Save MCQ data
+      const mcqData = insertMcqSchema.parse({
+        sessionId: session.id,
+        customHeader,
+        questions: JSON.stringify(questions),
+        includeAnswers: includeAnswers || false,
+        difficultyLevel: difficultyLevel || 'medium',
+        numberOfQuestions: numberOfQuestions || 10
+      });
+
+      const mcq = await storage.createMcq(mcqData);
+      
+      res.json({
+        session,
+        mcq,
+        questions,
+        formattedContent: formatMCQsForDisplay(questions, includeAnswers, customHeader)
+      });
+    } catch (error) {
+      console.error("MCQ generation error:", error);
+      res.status(500).json({ 
+        message: error instanceof Error ? error.message : "Failed to generate MCQs" 
+      });
+    }
+  });
+
+  // Generate MCQs from PDF
+  app.post("/api/generate-mcq-pdf", upload.single('pdf'), async (req, res) => {
+    let tempFilePath: string | undefined;
+    try {
+      const { topic, customHeader, numberOfQuestions, difficultyLevel, includeAnswers, preferredModel } = req.body;
+      const file = (req as any).file;
+
+      if (!file) {
+        return res.status(400).json({ message: "PDF file is required" });
+      }
+
+      if (!topic) {
+        return res.status(400).json({ message: "Topic is required" });
+      }
+
+      tempFilePath = file.path;
+      
+      // Extract text from PDF
+      const extractedContent = await extractTextFromPDF(tempFilePath);
+      
+      // Generate MCQs
+      const { questions, modelUsed } = await generateMCQs({
+        content: extractedContent,
+        topic,
+        numberOfQuestions: parseInt(numberOfQuestions) || 10,
+        difficultyLevel: difficultyLevel || 'medium',
+        customHeader,
+        includeAnswers: includeAnswers === 'true',
+        preferredModel
+      });
+
+      // Create MCQ session
+      const sessionData = insertContentSessionSchema.parse({
+        topic,
+        title: `MCQ: ${topic}`,
+        extractedContent,
+        wordCount: extractedContent.split(/\s+/).length,
+        modelUsed,
+        sourceType: "mcq",
+        sessionType: "mcq",
+        fileName: file.originalname
+      });
+
+      const session = await storage.createContentSession(sessionData);
+      
+      // Save MCQ data
+      const mcqData = insertMcqSchema.parse({
+        sessionId: session.id,
+        customHeader,
+        questions: JSON.stringify(questions),
+        includeAnswers: includeAnswers === 'true',
+        difficultyLevel: difficultyLevel || 'medium',
+        numberOfQuestions: parseInt(numberOfQuestions) || 10
+      });
+
+      const mcq = await storage.createMcq(mcqData);
+      
+      res.json({
+        session,
+        mcq,
+        questions,
+        formattedContent: formatMCQsForDisplay(questions, includeAnswers === 'true', customHeader)
+      });
+    } catch (error) {
+      console.error("MCQ PDF generation error:", error);
+      res.status(500).json({ 
+        message: error instanceof Error ? error.message : "Failed to generate MCQs from PDF" 
+      });
+    } finally {
+      // Clean up temp file
+      if (tempFilePath) {
+        cleanupTempFile(tempFilePath);
+      }
+    }
+  });
+
+  // Generate MCQs from topic only
+  app.post("/api/generate-mcq-topic", async (req, res) => {
+    try {
+      const { topic, subtopic, customHeader, numberOfQuestions, difficultyLevel, includeAnswers, preferredModel } = req.body;
+
+      if (!topic) {
+        return res.status(400).json({ message: "Topic is required" });
+      }
+
+      // Generate MCQs
+      const { questions, modelUsed } = await generateMCQs({
+        content: null,
+        topic,
+        subtopic,
+        numberOfQuestions: numberOfQuestions || 10,
+        difficultyLevel: difficultyLevel || 'medium',
+        customHeader,
+        includeAnswers: includeAnswers || false,
+        preferredModel
+      });
+
+      // Create MCQ session
+      const sessionData = insertContentSessionSchema.parse({
+        topic,
+        title: `MCQ: ${topic}${subtopic ? ` - ${subtopic}` : ''}`,
+        modelUsed,
+        sourceType: "mcq",
+        sessionType: "mcq"
+      });
+
+      const session = await storage.createContentSession(sessionData);
+      
+      // Save MCQ data
+      const mcqData = insertMcqSchema.parse({
+        sessionId: session.id,
+        customHeader,
+        questions: JSON.stringify(questions),
+        includeAnswers: includeAnswers || false,
+        difficultyLevel: difficultyLevel || 'medium',
+        numberOfQuestions: numberOfQuestions || 10,
+        subtopic
+      });
+
+      const mcq = await storage.createMcq(mcqData);
+      
+      res.json({
+        session,
+        mcq,
+        questions,
+        formattedContent: formatMCQsForDisplay(questions, includeAnswers, customHeader)
+      });
+    } catch (error) {
+      console.error("MCQ topic generation error:", error);
+      res.status(500).json({ 
+        message: error instanceof Error ? error.message : "Failed to generate MCQs from topic" 
+      });
+    }
+  });
+
+  // Get MCQ by session ID
+  app.get("/api/sessions/:sessionId/mcq", async (req, res) => {
+    try {
+      const { sessionId } = req.params;
+      
+      const session = await storage.getContentSession(sessionId);
+      if (!session) {
+        return res.status(404).json({ message: "Session not found" });
+      }
+
+      const mcq = await storage.getMcqBySessionId(sessionId);
+      if (!mcq) {
+        return res.status(404).json({ message: "MCQ not found" });
+      }
+
+      const questions = JSON.parse(mcq.questions);
+      
+      res.json({
+        session,
+        mcq,
+        questions,
+        formattedContent: formatMCQsForDisplay(questions, mcq.includeAnswers, mcq.customHeader || undefined)
+      });
+    } catch (error) {
+      console.error("Get MCQ error:", error);
+      res.status(500).json({ message: "Failed to get MCQ" });
     }
   });
 
