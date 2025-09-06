@@ -37,6 +37,7 @@ interface ModelsResponse {
 export default function ContentInputForm({ onSessionCreated }: ContentInputFormProps) {
   const [url, setUrl] = useState("");
   const [topic, setTopic] = useState("");
+  const [customTopic, setCustomTopic] = useState("");
   const [selectedModel, setSelectedModel] = useState<string>("auto");
   const [pdfFile, setPdfFile] = useState<File | null>(null);
   const [activeTab, setActiveTab] = useState("url");
@@ -140,6 +141,7 @@ export default function ContentInputForm({ onSessionCreated }: ContentInputFormP
   const resetForm = () => {
     setUrl("");
     setTopic("");
+    setCustomTopic("");
     setSelectedModel("auto");
     setPdfFile(null);
   };
@@ -204,16 +206,37 @@ export default function ContentInputForm({ onSessionCreated }: ContentInputFormP
   const handleTopicSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     
-    if (!topic) {
+    const finalTopic = topic === 'custom' ? customTopic.trim() : topic;
+    
+    if (!finalTopic) {
       toast({
         title: "Topic required",
-        description: "Please select a topic to discuss.",
+        description: topic === 'custom' ? "Please enter a custom topic." : "Please select a topic to discuss.",
         variant: "destructive",
       });
       return;
     }
 
-    topicMutation.mutate();
+    // Update the mutation to use the final topic
+    const response = apiRequest("POST", "/api/create-topic-session", { 
+      topic: finalTopic, 
+      preferredModel: selectedModel === "auto" ? undefined : selectedModel || undefined 
+    });
+    
+    response.then(res => res.json()).then((data) => {
+      toast({
+        title: "Topic session created!",
+        description: `Ready to discuss ${finalTopic}.`,
+      });
+      onSessionCreated(data.session.id);
+      resetForm();
+    }).catch((error) => {
+      toast({
+        title: "Failed to create topic session",
+        description: error.message,
+        variant: "destructive",
+      });
+    });
   };
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -448,8 +471,22 @@ export default function ContentInputForm({ onSessionCreated }: ContentInputFormP
                   <SelectItem value="politics">Politics & Policy</SelectItem>
                   <SelectItem value="environment">Environment</SelectItem>
                   <SelectItem value="culture">Culture & Society</SelectItem>
+                  <SelectItem value="custom">Custom Topic</SelectItem>
                 </SelectContent>
               </Select>
+              
+              {topic === 'custom' && (
+                <div className="mt-3">
+                  <Input
+                    placeholder="Enter your custom topic (e.g., global warming, child labour, Indian economy)..."
+                    value={customTopic}
+                    onChange={(e) => setCustomTopic(e.target.value)}
+                    data-testid="input-custom-topic"
+                    className="w-full"
+                  />
+                </div>
+              )}
+              
               <p className="text-sm text-muted-foreground mt-1">
                 Start a free-form discussion about your chosen topic without any specific content source.
               </p>

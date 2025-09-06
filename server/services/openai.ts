@@ -2,13 +2,18 @@
 const OPENROUTER_API_KEY = process.env.OPENROUTER_API_KEY || "";
 const OPENROUTER_BASE_URL = "https://openrouter.ai/api/v1";
 
+// Model configuration with their corresponding API keys
+const MODEL_CONFIG = {
+  'deepseek/deepseek-chat-v3.1:free': 'OPENAI_API_KEY_DEEPSEEK',
+  'openai/gpt-oss-120b:free': 'OPENAI_API_KEY_GPTOSS', 
+  'qwen/qwen3-4b:free': 'OPENAI_API_KEY_QWEN',
+  'meta-llama/llama-3.1-8b-instruct:free': 'OPENROUTER_API_KEY',
+  'microsoft/phi-3-mini-128k-instruct:free': 'OPENROUTER_API_KEY',
+  'google/gemma-2-9b-it:free': 'OPENROUTER_API_KEY',
+};
+
 // Available models with fallback order
-const AVAILABLE_MODELS = [
-  "qwen/qwen3-4b:free",
-  "meta-llama/llama-3.1-8b-instruct:free", 
-  "microsoft/phi-3-mini-128k-instruct:free",
-  "google/gemma-2-9b-it:free"
-];
+const AVAILABLE_MODELS = Object.keys(MODEL_CONFIG);
 
 // Content chunking configuration
 const MAX_CHUNK_SIZE = 8000; // characters per chunk
@@ -28,11 +33,19 @@ interface OpenRouterResponse {
 }
 
 async function callOpenRouter(messages: OpenRouterMessage[], model: string): Promise<string> {
+  // Get the appropriate API key for this model
+  const apiKeyName = MODEL_CONFIG[model as keyof typeof MODEL_CONFIG] || 'OPENROUTER_API_KEY';
+  const apiKey = process.env[apiKeyName];
+  
+  if (!apiKey) {
+    throw new Error(`API key ${apiKeyName} not found for model ${model}`);
+  }
+  
   const response = await fetch(`${OPENROUTER_BASE_URL}/chat/completions`, {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
-      "Authorization": `Bearer ${OPENROUTER_API_KEY}`,
+      "Authorization": `Bearer ${apiKey}`,
       "HTTP-Referer": "https://localhost:5000",
       "X-Title": "ContentQuery AI"
     },
