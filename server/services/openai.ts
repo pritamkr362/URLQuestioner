@@ -264,19 +264,20 @@ async function findRelevantChunks(question: string, chunks: string[], maxChunks:
   return relevantChunks.length > 0 ? relevantChunks : chunks.slice(0, maxChunks);
 }
 
-export async function answerQuestion(question: string, content: string | null, topic: string, preferredModel?: string): Promise<{ answer: string; modelUsed: string }> {
+export async function answerQuestion(question: string, content: string | null, topic: string, preferredModel?: string, conversationHistory?: Array<{role: string, content: string}>): Promise<{ answer: string; modelUsed: string }> {
   try {
     // Handle topic-only sessions (no content)
     if (!content || content.trim() === '') {
-      const systemPrompt = `You are an expert assistant in the field of ${topic}. The user wants to have an open discussion about this topic without any specific source material. Your job is to:
+      const systemPrompt = `You are an expert assistant discussing ${topic}. This is an ongoing conversation about this specific topic. Your job is to:
 
-1. Provide knowledgeable and helpful responses about ${topic}
-2. Keep all responses relevant to the topic: ${topic}
-3. If the user asks something off-topic, gently redirect them back to the topic
-4. Use your general knowledge about the topic to provide useful insights
-5. Ask follow-up questions to encourage deeper discussion
+1. Continue the conversation naturally about ${topic}
+2. Keep all responses strictly relevant to the topic: ${topic}
+3. If the user asks about a different topic, politely redirect: "This session is focused on ${topic}. For other topics, please start a new analysis."
+4. Reference previous parts of this conversation when relevant
+5. Provide thoughtful, engaging responses that build on the discussion
 
-Respond to questions and engage in meaningful discussion about ${topic}.`;
+Current topic: ${topic}
+Stay focused on this topic throughout the entire conversation.`;
 
       const { response, modelUsed } = await callWithFallback([
         { role: "system", content: systemPrompt },

@@ -118,12 +118,20 @@ export async function registerRoutes(app: Express): Promise<Server> {
         })
       );
 
-      // Get AI response
+      // Get conversation history for context
+      const existingMessages = storage.getSessionMessages(sessionId);
+      const conversationHistory = existingMessages.map(msg => ({
+        role: msg.role,
+        content: msg.content
+      }));
+
+      // Get AI response with conversation context
       const { answer, modelUsed } = await answerQuestion(
         question.trim(),
         session.extractedContent || null,
         session.topic,
-        preferredModel
+        preferredModel,
+        conversationHistory
       );
 
       // Save assistant message

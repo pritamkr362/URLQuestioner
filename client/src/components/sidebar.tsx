@@ -24,40 +24,10 @@ export default function Sidebar({ onNewAnalysis }: SidebarProps) {
         <button 
           className="w-full flex items-center space-x-3 px-3 py-2 rounded-lg bg-primary text-primary-foreground transition-colors"
           onClick={onNewAnalysis}
-          data-testid="nav-url-analysis"
+          data-testid="nav-new-analysis"
         >
-          <i className="fas fa-link w-4"></i>
-          <span>URL Analysis</span>
-        </button>
-        <button 
-          className="w-full flex items-center space-x-3 px-3 py-2 rounded-lg text-muted-foreground hover:bg-secondary hover:text-secondary-foreground transition-colors"
-          data-testid="nav-recent-sessions"
-        >
-          <i className="fas fa-history w-4"></i>
-          <span>Recent Sessions</span>
-        </button>
-        <button 
-          className="w-full flex items-center space-x-3 px-3 py-2 rounded-lg text-muted-foreground hover:bg-secondary hover:text-secondary-foreground transition-colors"
-          data-testid="nav-saved-content"
-        >
-          <i className="fas fa-bookmark w-4"></i>
-          <span>Saved Content</span>
-        </button>
-        
-        <div className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-3 mt-6">Settings</div>
-        <button 
-          className="w-full flex items-center space-x-3 px-3 py-2 rounded-lg text-muted-foreground hover:bg-secondary hover:text-secondary-foreground transition-colors"
-          data-testid="nav-preferences"
-        >
-          <i className="fas fa-cog w-4"></i>
-          <span>Preferences</span>
-        </button>
-        <button 
-          className="w-full flex items-center space-x-3 px-3 py-2 rounded-lg text-muted-foreground hover:bg-secondary hover:text-secondary-foreground transition-colors"
-          data-testid="nav-help"
-        >
-          <i className="fas fa-question-circle w-4"></i>
-          <span>Help & Support</span>
+          <i className="fas fa-plus w-4"></i>
+          <span>New Analysis</span>
         </button>
       </nav>
       
