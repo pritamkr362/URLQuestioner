@@ -10,6 +10,10 @@ const AVAILABLE_MODELS = [
   "google/gemma-2-9b-it:free"
 ];
 
+// Content chunking configuration
+const MAX_CHUNK_SIZE = 8000; // characters per chunk
+const CHUNK_OVERLAP = 200; // overlap between chunks
+
 interface OpenRouterMessage {
   role: "user" | "assistant" | "system";
   content: string;
@@ -49,6 +53,35 @@ async function callOpenRouter(messages: OpenRouterMessage[], model: string): Pro
   return data.choices[0]?.message?.content || "";
 }
 
+function splitContentIntoChunks(content: string, maxChunkSize: number = MAX_CHUNK_SIZE, overlap: number = CHUNK_OVERLAP): string[] {
+  if (content.length <= maxChunkSize) {
+    return [content];
+  }
+
+  const chunks: string[] = [];
+  let start = 0;
+
+  while (start < content.length) {
+    let end = Math.min(start + maxChunkSize, content.length);
+    
+    // Try to break at sentence boundary if possible
+    if (end < content.length) {
+      const lastSentenceEnd = content.lastIndexOf('.', end);
+      const lastParagraphEnd = content.lastIndexOf('\n\n', end);
+      const breakPoint = Math.max(lastSentenceEnd, lastParagraphEnd);
+      
+      if (breakPoint > start + maxChunkSize * 0.5) {
+        end = breakPoint + 1;
+      }
+    }
+    
+    chunks.push(content.slice(start, end).trim());
+    start = end - overlap;
+  }
+
+  return chunks;
+}
+
 async function callWithFallback(messages: OpenRouterMessage[], preferredModel?: string): Promise<{ response: string; modelUsed: string }> {
   const modelsToTry = preferredModel ? [preferredModel, ...AVAILABLE_MODELS.filter(m => m !== preferredModel)] : AVAILABLE_MODELS;
   
@@ -79,46 +112,115 @@ export interface ContentAnalysis {
 
 export { AVAILABLE_MODELS };
 
+async function analyzeContentChunk(chunk: string, topic: string, chunkIndex: number, totalChunks: number, preferredModel?: string): Promise<any> {
+  const prompt = `You are an expert content analyst. This is chunk ${chunkIndex + 1} of ${totalChunks} from a larger document.
+  
+  Analyze this content chunk and provide a JSON response with:
+  - title: Extract or generate a descriptive title (only for chunk 1, otherwise "")
+  - summary: A summary of this chunk's content
+  - keyPoints: Array of key points from this chunk
+  - wordCount: Word count of this chunk
+  
+  Focus the analysis on the topic: ${topic}
+  
+  IMPORTANT: Respond with valid JSON only, no additional text.
+  
+  Content chunk to analyze:
+  ${chunk}`;
+
+  const { response, modelUsed } = await callWithFallback([
+    { role: "user", content: prompt }
+  ], preferredModel);
+
+  try {
+    return { ...JSON.parse(response), modelUsed };
+  } catch {
+    return {
+      title: chunkIndex === 0 ? "Extracted Content" : "",
+      summary: response.slice(0, 200) + "...",
+      keyPoints: ["Analysis completed"],
+      wordCount: chunk.split(/\s+/).length,
+      modelUsed
+    };
+  }
+}
+
 export async function analyzeContent(content: string, topic: string, preferredModel?: string): Promise<ContentAnalysis> {
   try {
-    const prompt = `You are an expert content analyst. Analyze the following content and provide a JSON response with:
-    - title: Extract or generate a descriptive title
-    - summary: A concise summary (2-3 sentences)
-    - wordCount: Estimated word count
-    - readTime: Estimated reading time in minutes
-    - keyPoints: Array of 3-5 key points from the content
+    const chunks = splitContentIntoChunks(content);
+    console.log(`Content split into ${chunks.length} chunks for analysis`);
     
-    Focus the analysis on the topic: ${topic}
-    
-    IMPORTANT: Respond with valid JSON only, no additional text.
-    
-    Content to analyze:
-    ${content}`;
+    if (chunks.length === 1) {
+      // Single chunk - use original logic
+      const prompt = `You are an expert content analyst. Analyze the following content and provide a JSON response with:
+      - title: Extract or generate a descriptive title
+      - summary: A concise summary (2-3 sentences)
+      - wordCount: Estimated word count
+      - readTime: Estimated reading time in minutes
+      - keyPoints: Array of 3-5 key points from the content
+      
+      Focus the analysis on the topic: ${topic}
+      
+      IMPORTANT: Respond with valid JSON only, no additional text.
+      
+      Content to analyze:
+      ${content}`;
 
-    const { response, modelUsed } = await callWithFallback([
-      { role: "user", content: prompt }
-    ], preferredModel);
+      const { response, modelUsed } = await callWithFallback([
+        { role: "user", content: prompt }
+      ], preferredModel);
 
-    let result;
-    try {
-      result = JSON.parse(response);
-    } catch {
-      // If JSON parsing fails, extract data manually
-      result = {
-        title: "Extracted Content",
-        summary: response.slice(0, 200) + "...",
-        wordCount: content.split(/\s+/).length,
-        readTime: Math.ceil(content.split(/\s+/).length / 200),
-        keyPoints: ["Analysis completed", "Content extracted", "Ready for questions"]
+      let result;
+      try {
+        result = JSON.parse(response);
+      } catch {
+        result = {
+          title: "Extracted Content",
+          summary: response.slice(0, 200) + "...",
+          wordCount: content.split(/\s+/).length,
+          readTime: Math.ceil(content.split(/\s+/).length / 200),
+          keyPoints: ["Analysis completed", "Content extracted", "Ready for questions"]
+        };
+      }
+
+      return {
+        title: result.title || "Extracted Content",
+        summary: result.summary || "",
+        wordCount: Math.floor(result.wordCount) || content.split(/\s+/).length,
+        readTime: Math.ceil(result.readTime) || Math.ceil(content.split(/\s+/).length / 200),
+        keyPoints: result.keyPoints || [],
+        modelUsed
       };
     }
 
+    // Multiple chunks - analyze each chunk and combine results
+    const chunkAnalyses = await Promise.all(
+      chunks.map((chunk, index) => 
+        analyzeContentChunk(chunk, topic, index, chunks.length, preferredModel)
+      )
+    );
+
+    // Combine chunk analyses
+    const title = chunkAnalyses[0].title || "Extracted Content";
+    const summaries = chunkAnalyses.map(a => a.summary).filter(s => s);
+    const allKeyPoints = chunkAnalyses.flatMap(a => a.keyPoints || []);
+    const totalWordCount = content.split(/\s+/).length;
+    const modelUsed = chunkAnalyses[0].modelUsed;
+
+    // Create final summary from chunk summaries
+    const combinedSummary = summaries.length > 1 
+      ? `This document covers: ${summaries.join(' ')}` 
+      : summaries[0] || "Content analyzed in multiple parts";
+
+    // Select most important key points (limit to 5)
+    const uniqueKeyPoints = [...new Set(allKeyPoints)].slice(0, 5);
+
     return {
-      title: result.title || "Extracted Content",
-      summary: result.summary || "",
-      wordCount: Math.floor(result.wordCount) || content.split(/\s+/).length,
-      readTime: Math.ceil(result.readTime) || Math.ceil(content.split(/\s+/).length / 200),
-      keyPoints: result.keyPoints || [],
+      title,
+      summary: combinedSummary,
+      wordCount: totalWordCount,
+      readTime: Math.ceil(totalWordCount / 200),
+      keyPoints: uniqueKeyPoints,
       modelUsed
     };
   } catch (error) {
@@ -127,9 +229,35 @@ export async function analyzeContent(content: string, topic: string, preferredMo
   }
 }
 
+async function findRelevantChunks(question: string, chunks: string[], maxChunks: number = 3): Promise<string[]> {
+  // Simple relevance scoring based on keyword overlap
+  const questionWords = question.toLowerCase().split(/\s+/).filter(word => word.length > 3);
+  
+  const chunkScores = chunks.map((chunk, index) => {
+    const chunkWords = chunk.toLowerCase().split(/\s+/);
+    const score = questionWords.reduce((acc, word) => {
+      return acc + (chunkWords.filter(cw => cw.includes(word)).length);
+    }, 0);
+    return { chunk, score, index };
+  });
+
+  // Sort by relevance and take top chunks
+  const relevantChunks = chunkScores
+    .sort((a, b) => b.score - a.score)
+    .slice(0, maxChunks)
+    .sort((a, b) => a.index - b.index) // Restore original order
+    .map(item => item.chunk);
+
+  return relevantChunks.length > 0 ? relevantChunks : chunks.slice(0, maxChunks);
+}
+
 export async function answerQuestion(question: string, content: string, topic: string, preferredModel?: string): Promise<{ answer: string; modelUsed: string }> {
   try {
-    const systemPrompt = `You are an expert assistant in the field of ${topic}. A user will ask questions based on the provided content. Your job is to:
+    const chunks = splitContentIntoChunks(content);
+    
+    if (chunks.length === 1) {
+      // Single chunk - use original logic
+      const systemPrompt = `You are an expert assistant in the field of ${topic}. A user will ask questions based on the provided content. Your job is to:
 
 1. Answer questions using ONLY the information from the provided content
 2. Keep all responses relevant to the topic: ${topic}
@@ -139,6 +267,34 @@ export async function answerQuestion(question: string, content: string, topic: s
 
 Content:
 ${content}`;
+
+      const { response, modelUsed } = await callWithFallback([
+        { role: "system", content: systemPrompt },
+        { role: "user", content: question }
+      ], preferredModel);
+
+      return {
+        answer: response || "I couldn't process your question. Please try again.",
+        modelUsed
+      };
+    }
+
+    // Multiple chunks - find most relevant chunks for the question
+    console.log(`Finding relevant chunks from ${chunks.length} total chunks for question`);
+    const relevantChunks = await findRelevantChunks(question, chunks);
+    const combinedRelevantContent = relevantChunks.join('\n\n');
+
+    const systemPrompt = `You are an expert assistant in the field of ${topic}. A user will ask questions based on the provided content excerpts from a larger document. Your job is to:
+
+1. Answer questions using ONLY the information from the provided content excerpts
+2. Keep all responses relevant to the topic: ${topic}
+3. If the user asks something off-topic, gently redirect them back to the topic
+4. If something is not in the provided excerpts, explicitly say you don't have that information in the available content
+5. Do not invent facts that are not mentioned in the content
+6. If the answer spans multiple excerpts, synthesize the information coherently
+
+Content excerpts:
+${combinedRelevantContent}`;
 
     const { response, modelUsed } = await callWithFallback([
       { role: "system", content: systemPrompt },
