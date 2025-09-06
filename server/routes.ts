@@ -1,7 +1,7 @@
 import type { Express } from "express";
 import { createServer, type Server } from "http";
+// @ts-ignore
 import multer from "multer";
-import path from "path";
 import { storage } from "./storage";
 import { insertContentSessionSchema, insertMessageSchema } from "@shared/schema";
 import { extractContentFromUrl } from "./services/scraper";
@@ -11,7 +11,7 @@ import { extractTextFromPDF, cleanupTempFile } from "./services/pdf-processor";
 // Configure multer for PDF uploads
 const upload = multer({
   dest: 'uploads/',
-  fileFilter: (req, file, cb) => {
+  fileFilter: (req: any, file: any, cb: any) => {
     if (file.mimetype === 'application/pdf') {
       cb(null, true);
     } else {
@@ -121,7 +121,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Get AI response
       const { answer, modelUsed } = await answerQuestion(
         question.trim(),
-        session.extractedContent,
+        session.extractedContent || null,
         session.topic,
         preferredModel
       );
@@ -164,7 +164,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     let tempFilePath: string | undefined;
     try {
       const { topic, preferredModel } = req.body;
-      const file = req.file;
+      const file = (req as any).file;
 
       if (!file) {
         return res.status(400).json({ message: "PDF file is required" });

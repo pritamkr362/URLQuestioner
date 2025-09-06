@@ -251,8 +251,31 @@ async function findRelevantChunks(question: string, chunks: string[], maxChunks:
   return relevantChunks.length > 0 ? relevantChunks : chunks.slice(0, maxChunks);
 }
 
-export async function answerQuestion(question: string, content: string, topic: string, preferredModel?: string): Promise<{ answer: string; modelUsed: string }> {
+export async function answerQuestion(question: string, content: string | null, topic: string, preferredModel?: string): Promise<{ answer: string; modelUsed: string }> {
   try {
+    // Handle topic-only sessions (no content)
+    if (!content || content.trim() === '') {
+      const systemPrompt = `You are an expert assistant in the field of ${topic}. The user wants to have an open discussion about this topic without any specific source material. Your job is to:
+
+1. Provide knowledgeable and helpful responses about ${topic}
+2. Keep all responses relevant to the topic: ${topic}
+3. If the user asks something off-topic, gently redirect them back to the topic
+4. Use your general knowledge about the topic to provide useful insights
+5. Ask follow-up questions to encourage deeper discussion
+
+Respond to questions and engage in meaningful discussion about ${topic}.`;
+
+      const { response, modelUsed } = await callWithFallback([
+        { role: "system", content: systemPrompt },
+        { role: "user", content: question }
+      ], preferredModel);
+
+      return {
+        answer: response || "I couldn't process your question. Please try again.",
+        modelUsed
+      };
+    }
+    
     const chunks = splitContentIntoChunks(content);
     
     if (chunks.length === 1) {
