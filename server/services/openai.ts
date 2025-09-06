@@ -213,7 +213,7 @@ export async function analyzeContent(content: string, topic: string, preferredMo
       : summaries[0] || "Content analyzed in multiple parts";
 
     // Select most important key points (limit to 5)
-    const uniqueKeyPoints = [...new Set(allKeyPoints)].slice(0, 5);
+    const uniqueKeyPoints = Array.from(new Set(allKeyPoints)).slice(0, 5);
 
     return {
       title,
