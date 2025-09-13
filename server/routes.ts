@@ -299,7 +299,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Generate MCQs from URL
   app.post("/api/generate-mcq-url", async (req, res) => {
     try {
-      const { url, topic, customHeader, numberOfQuestions, difficultyLevel, includeAnswers, preferredModel } = req.body;
+      const { url, topic, customHeader, numberOfQuestions, difficultyLevel, includeAnswers, preferredModel, language } = req.body;
 
       if (!url || !topic) {
         return res.status(400).json({ message: "URL and topic are required" });
@@ -316,7 +316,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
         difficultyLevel: difficultyLevel || 'medium',
         customHeader,
         includeAnswers: includeAnswers || false,
-        preferredModel
+        preferredModel,
+        language: language || 'english'
       });
 
       // Create MCQ session
@@ -363,7 +364,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.post("/api/generate-mcq-pdf", upload.single('pdf'), async (req, res) => {
     let tempFilePath: string | undefined;
     try {
-      const { topic, customHeader, numberOfQuestions, difficultyLevel, includeAnswers, preferredModel } = req.body;
+      const { topic, customHeader, numberOfQuestions, difficultyLevel, includeAnswers, preferredModel, language } = req.body;
       const file = (req as any).file;
 
       if (!file) {
@@ -387,7 +388,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
         difficultyLevel: difficultyLevel || 'medium',
         customHeader,
         includeAnswers: includeAnswers === 'true',
-        preferredModel
+        preferredModel,
+        language: language || 'english'
       });
 
       // Create MCQ session
@@ -438,7 +440,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Generate MCQs from topic only
   app.post("/api/generate-mcq-topic", async (req, res) => {
     try {
-      const { topic, subtopic, customHeader, numberOfQuestions, difficultyLevel, includeAnswers, preferredModel } = req.body;
+      const { topic, subtopic, customHeader, numberOfQuestions, difficultyLevel, includeAnswers, preferredModel, language } = req.body;
 
       if (!topic) {
         return res.status(400).json({ message: "Topic is required" });
@@ -453,7 +455,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
         difficultyLevel: difficultyLevel || 'medium',
         customHeader,
         includeAnswers: includeAnswers || false,
-        preferredModel
+        preferredModel,
+        language: language || 'english'
       });
 
       // Create MCQ session

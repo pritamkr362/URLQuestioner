@@ -1,9 +1,9 @@
 import { useState } from "react";
 import { useLocation } from "wouter";
 import Sidebar from "@/components/sidebar";
-import ContentInputForm from "@/components/content-input-form";
-import ContentPreview from "@/components/content-preview";
-import ChatInterface from "@/components/chat-interface";
+import MCQGenerator from "@/components/mcq-generator";
+import Discuss from "@/components/discuss";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useQuery } from "@tanstack/react-query";
 import { useToast } from "@/hooks/use-toast";
 import type { ContentSession } from "@shared/schema";
@@ -12,6 +12,7 @@ export default function Home() {
   const [location] = useLocation();
   const sessionId = location.startsWith("/session/") ? location.split("/")[2] : null;
   const [currentSessionId, setCurrentSessionId] = useState<string | null>(sessionId);
+  const [activeTab, setActiveTab] = useState("discuss");
 
   const { toast } = useToast();
   
@@ -136,19 +137,20 @@ export default function Home() {
         <header className="bg-card border-b border-border px-6 py-4">
           <div className="flex items-center justify-between">
             <div>
-              <h2 className="text-xl font-semibold text-foreground">URL Content Analysis</h2>
-              <p className="text-sm text-muted-foreground">Extract and analyze content from any URL with AI-powered insights</p>
+              <h2 className="text-xl font-semibold text-foreground">ContentQuery</h2>
+              <p className="text-sm text-muted-foreground">AI-powered content analysis and MCQ generation</p>
             </div>
             <div className="flex items-center space-x-3">
-              <button 
-                className="px-4 py-2 bg-secondary text-secondary-foreground rounded-lg hover:bg-secondary/80 transition-colors disabled:opacity-50"
-                onClick={handleExport}
-                disabled={!currentSession}
-                data-testid="button-export"
-              >
-                <i className="fas fa-download mr-2"></i>
-                Export
-              </button>
+              {currentSession && (
+                <button 
+                  className="px-4 py-2 bg-secondary text-secondary-foreground rounded-lg hover:bg-secondary/80 transition-colors"
+                  onClick={handleExport}
+                  data-testid="button-export"
+                >
+                  <i className="fas fa-download mr-2"></i>
+                  Export
+                </button>
+              )}
               <button 
                 className="px-4 py-2 gradient-bg text-white rounded-lg hover:opacity-90 transition-opacity"
                 onClick={handleNewAnalysis}
@@ -162,19 +164,43 @@ export default function Home() {
         </header>
 
         {/* Content Area */}
-        <div className="flex-1 flex">
-          {/* URL Input & Content Display */}
-          <div className="flex-1 p-6 space-y-6">
-            <ContentInputForm onSessionCreated={handleNewSession} />
-            {currentSession && <ContentPreview session={currentSession} />}
-          </div>
-          
-          {/* Q&A Interface */}
-          {currentSession && (
-            <div className="w-96 border-l border-border bg-card/50">
-              <ChatInterface sessionId={currentSession.id} topic={currentSession.topic} />
-            </div>
-          )}
+        <div className="flex-1 p-6 pt-16">
+          <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
+            <TabsList className="grid w-full grid-cols-2 mb-12 bg-muted/30 p-1 rounded-2xl">
+              <TabsTrigger 
+                value="discuss" 
+                className="flex items-center space-x-3 data-[state=active]:bg-white data-[state=active]:shadow-lg data-[state=active]:text-emerald-600 rounded-xl transition-all duration-300 py-4 px-6"
+              >
+                <div className="w-8 h-8 bg-gradient-to-br from-emerald-500 to-teal-600 rounded-lg flex items-center justify-center">
+                  <i className="fas fa-comments text-white text-sm"></i>
+                </div>
+                <div className="text-left">
+                  <div className="font-semibold">Discuss with AI</div>
+                  <div className="text-xs text-muted-foreground">Extract & chat</div>
+                </div>
+              </TabsTrigger>
+              <TabsTrigger 
+                value="mcq" 
+                className="flex items-center space-x-3 data-[state=active]:bg-white data-[state=active]:shadow-lg data-[state=active]:text-blue-600 rounded-xl transition-all duration-300 py-4 px-6"
+              >
+                <div className="w-8 h-8 bg-gradient-to-br from-blue-500 to-purple-600 rounded-lg flex items-center justify-center">
+                  <i className="fas fa-question-circle text-white text-sm"></i>
+                </div>
+                <div className="text-left">
+                  <div className="font-semibold">MCQ Generator</div>
+                  <div className="text-xs text-muted-foreground">Create questions</div>
+                </div>
+              </TabsTrigger>
+            </TabsList>
+
+            <TabsContent value="discuss" className="space-y-6">
+              <Discuss onSessionCreated={handleNewSession} />
+            </TabsContent>
+
+            <TabsContent value="mcq" className="space-y-6">
+              <MCQGenerator />
+            </TabsContent>
+          </Tabs>
         </div>
       </div>
     </div>

@@ -41,6 +41,76 @@ export default function ContentInputForm({ onSessionCreated }: ContentInputFormP
   const [selectedModel, setSelectedModel] = useState<string>("auto");
   const [pdfFile, setPdfFile] = useState<File | null>(null);
   const [activeTab, setActiveTab] = useState("url");
+  const [mcqResult, setMcqResult] = useState<any>(null);
+  // Common MCQ generation handler
+  const handleGenerateMCQ = async () => {
+    let endpoint = "";
+    let body: any = {
+      customHeader: mcqCustomHeader,
+      numberOfQuestions: mcqNumberOfQuestions,
+      difficultyLevel: mcqDifficultyLevel,
+      includeAnswers: mcqIncludeAnswers,
+      preferredModel: selectedModel === "auto" ? undefined : selectedModel || undefined,
+      subtopic: mcqSubtopic,
+    };
+    if (activeTab === "mcq-url") {
+      endpoint = "/api/generate-mcq-url";
+      body.url = url;
+      body.topic = topic;
+    } else if (activeTab === "mcq-pdf") {
+      endpoint = "/api/generate-mcq-pdf";
+      body.topic = topic;
+      // PDF file upload
+      if (!pdfFile) {
+        toast({ title: "PDF required", description: "Select a PDF file.", variant: "destructive" });
+        return;
+      }
+      const formData = new FormData();
+      Object.entries(body).forEach(([key, value]) => formData.append(key, value as any));
+      formData.append("pdf", pdfFile);
+      try {
+        const response = await fetch(endpoint, { method: "POST", body: formData });
+        if (!response.ok) throw new Error((await response.json()).message || "PDF MCQ generation failed");
+        const result = await response.json();
+        setMcqResult(result);
+        toast({ title: "MCQs generated!", description: "PDF MCQs created." });
+      } catch (error: any) {
+        toast({ title: "Error", description: error.message, variant: "destructive" });
+      }
+      return;
+    } else if (activeTab === "mcq-topic") {
+      endpoint = "/api/generate-mcq-topic";
+      body.topic = topic === "custom" ? customTopic : topic;
+    } else {
+      toast({ title: "Select MCQ source tab", description: "Choose URL, PDF, or Topic.", variant: "destructive" });
+      return;
+    }
+    try {
+      const response = await apiRequest("POST", endpoint, body);
+      if (!response.ok) throw new Error((await response.json()).message || "MCQ generation failed");
+      const result = await response.json();
+      setMcqResult(result);
+      toast({ title: "MCQs generated!", description: "MCQs created successfully." });
+    } catch (error: any) {
+      toast({ title: "Error", description: error.message, variant: "destructive" });
+    }
+  };
+
+  // Export MCQs to PDF
+  const handleExportPDF = () => {
+    if (!mcqResult || !mcqResult.formattedContent) {
+      toast({ title: "No MCQs", description: "Generate MCQs first.", variant: "destructive" });
+      return;
+    }
+    import("jspdf").then(({ jsPDF }) => {
+      const doc = new jsPDF();
+      const content = mcqResult.formattedContent;
+      const lines = doc.splitTextToSize(content, 180);
+      doc.text(lines, 10, 10);
+      doc.save("mcqs.pdf");
+      toast({ title: "Exported", description: "MCQs exported to PDF." });
+    });
+  };
   
   // MCQ specific states
   const [mcqCustomHeader, setMcqCustomHeader] = useState("");
@@ -773,6 +843,7 @@ export default function ContentInputForm({ onSessionCreated }: ContentInputFormP
                 className="w-full py-3 gradient-bg text-white font-medium rounded-lg hover:opacity-90 transition-opacity"
                 disabled={isLoading}
                 data-testid="button-generate-mcq"
+                onClick={handleGenerateMCQ}
               >
                 {isLoading ? (
                   <>
@@ -785,6 +856,16 @@ export default function ContentInputForm({ onSessionCreated }: ContentInputFormP
                     Generate MCQs
                   </>
                 )}
+              </Button>
+              <Button
+                type="button"
+                className="w-full py-3 mt-2 bg-secondary text-foreground font-medium rounded-lg hover:opacity-90 transition-opacity"
+                disabled={!mcqResult || !mcqResult.formattedContent}
+                data-testid="button-export-mcq-pdf"
+                onClick={handleExportPDF}
+              >
+                <i className="fas fa-file-pdf mr-2"></i>
+                Export to PDF
               </Button>
             </div>
           </div>
