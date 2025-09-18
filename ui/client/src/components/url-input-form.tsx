@@ -6,6 +6,7 @@ import { Label } from "@/components/ui/label";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest } from "@/lib/queryClient";
+import { apiUrl } from "@/lib/api";
 import { useMutation, useQuery } from "@tanstack/react-query";
 
 interface ContentInputFormProps {
@@ -44,6 +45,11 @@ export default function ContentInputForm({ onSessionCreated }: ContentInputFormP
 
   const { data: modelsData } = useQuery<ModelsResponse>({
     queryKey: ['/api/models'],
+    queryFn: async () => {
+      const res = await fetch(apiUrl('/api/models'), { credentials: 'include' });
+      if (!res.ok) throw new Error(`${res.status}: ${(await res.text()) || res.statusText}`);
+      return res.json();
+    },
   });
 
   const extractMutation = useMutation({
@@ -83,9 +89,10 @@ export default function ContentInputForm({ onSessionCreated }: ContentInputFormP
         formData.append('preferredModel', selectedModel);
       }
 
-      const response = await fetch('/api/extract-pdf', {
+      const response = await fetch(apiUrl('/api/extract-pdf'), {
         method: 'POST',
         body: formData,
+        credentials: 'include',
       });
 
       if (!response.ok) {

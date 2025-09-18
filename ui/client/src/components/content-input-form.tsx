@@ -6,6 +6,7 @@ import { Label } from "@/components/ui/label";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest } from "@/lib/queryClient";
+import { apiUrl } from "@/lib/api";
 import { useMutation, useQuery } from "@tanstack/react-query";
 
 interface ContentInputFormProps {
@@ -69,7 +70,7 @@ export default function ContentInputForm({ onSessionCreated }: ContentInputFormP
       Object.entries(body).forEach(([key, value]) => formData.append(key, value as any));
       formData.append("pdf", pdfFile);
       try {
-        const response = await fetch(endpoint, { method: "POST", body: formData });
+        const response = await fetch(apiUrl(endpoint), { method: "POST", body: formData, credentials: "include" });
         if (!response.ok) throw new Error((await response.json()).message || "PDF MCQ generation failed");
         const result = await response.json();
         setMcqResult(result);
@@ -122,6 +123,11 @@ export default function ContentInputForm({ onSessionCreated }: ContentInputFormP
 
   const { data: modelsData } = useQuery<ModelsResponse>({
     queryKey: ['/api/models'],
+    queryFn: async () => {
+      const res = await fetch(apiUrl('/api/models'), { credentials: 'include' });
+      if (!res.ok) throw new Error(`${res.status}: ${(await res.text()) || res.statusText}`);
+      return res.json();
+    },
   });
 
   const extractMutation = useMutation({
@@ -144,7 +150,7 @@ export default function ContentInputForm({ onSessionCreated }: ContentInputFormP
     onError: (error) => {
       toast({
         title: "Content extraction failed",
-        description: error.message,
+        description: (error as Error).message,
         variant: "destructive",
       });
     },
@@ -161,9 +167,10 @@ export default function ContentInputForm({ onSessionCreated }: ContentInputFormP
         formData.append('preferredModel', selectedModel);
       }
 
-      const response = await fetch('/api/extract-pdf', {
+      const response = await fetch(apiUrl('/api/extract-pdf'), {
         method: 'POST',
         body: formData,
+        credentials: 'include',
       });
 
       if (!response.ok) {
@@ -184,7 +191,7 @@ export default function ContentInputForm({ onSessionCreated }: ContentInputFormP
     onError: (error) => {
       toast({
         title: "PDF processing failed",
-        description: error.message,
+        description: (error as Error).message,
         variant: "destructive",
       });
     },
@@ -209,7 +216,7 @@ export default function ContentInputForm({ onSessionCreated }: ContentInputFormP
     onError: (error) => {
       toast({
         title: "Failed to create topic session",
-        description: error.message,
+        description: (error as Error).message,
         variant: "destructive",
       });
     },
@@ -315,7 +322,7 @@ export default function ContentInputForm({ onSessionCreated }: ContentInputFormP
     }).catch((error) => {
       toast({
         title: "Failed to create topic session",
-        description: error.message,
+        description: (error as Error).message,
         variant: "destructive",
       });
     });
@@ -690,7 +697,7 @@ export default function ContentInputForm({ onSessionCreated }: ContentInputFormP
                   </div>
                   
                   <div>
-                    <Label className="block text-sm font-medium text-foreground mb-2">Topic Focus</Label>
+                    <Label className="block text_sm font-medium text-foreground mb-2">Topic Focus</Label>
                     <Select value={topic} onValueChange={setTopic}>
                       <SelectTrigger data-testid="select-mcq-pdf-topic">
                         <SelectValue placeholder="Select topic focus..." />
@@ -807,7 +814,7 @@ export default function ContentInputForm({ onSessionCreated }: ContentInputFormP
                 </div>
               </div>
               
-              <div className="flex items-center space-x-2">
+              <div className="flex items_center space-x-2">
                 <input
                   type="checkbox"
                   id="mcq-answers"

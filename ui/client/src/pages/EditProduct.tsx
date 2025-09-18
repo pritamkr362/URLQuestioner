@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import axios from 'axios';
+import { apiUrl, assetUrl } from "@/lib/api";
 import { useRoute, Link, useLocation } from "wouter";
 
 interface Product {
@@ -30,7 +31,7 @@ const EditProduct: React.FC = () => {
 
     const fetchProductDetails = async () => {
         try {
-            const res = await axios.get(`http://localhost:5000/api/products/${productId}`);
+            const res = await axios.get(apiUrl(`/api/products/${productId}`));
             const product: Product = res.data;
             setName(product.name);
             setDescription(product.description);
@@ -58,7 +59,7 @@ const EditProduct: React.FC = () => {
         }
 
         try {
-            await axios.put(`http://localhost:5000/api/products/${productId}`, formData, {
+            await axios.put(apiUrl(`/api/products/${productId}`), formData, {
                 headers: {
                     'Content-Type': 'multipart/form-data',
                     'x-auth-token': token,
@@ -104,7 +105,7 @@ const EditProduct: React.FC = () => {
                 {currentImage && (
                     <div style={{ marginBottom: '10px' }}>
                         <p>Current Image:</p>
-                        <img src={`http://localhost:5000${currentImage}`} alt="Current Product" style={{ width: '100px', height: '100px', objectFit: 'cover', borderRadius: '4px' }} />
+                        <img src={assetUrl(currentImage)} alt="Current Product" style={{ width: '100px', height: '100px', objectFit: 'cover', borderRadius: '4px' }} />
                     </div>
                 )}
                 <input

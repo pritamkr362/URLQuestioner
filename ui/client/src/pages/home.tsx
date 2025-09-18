@@ -5,6 +5,7 @@ import MCQGenerator from "@/components/mcq-generator";
 import Discuss from "@/components/discuss";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useQuery } from "@tanstack/react-query";
+import { apiUrl } from "@/lib/api";
 import { useToast } from "@/hooks/use-toast";
 import type { ContentSession } from "@shared/schema";
 
@@ -40,7 +41,7 @@ export default function Home() {
     }
 
     try {
-      const response = await fetch(`/api/sessions/${currentSession.id}/export-pdf`);
+      const response = await fetch(apiUrl(`/api/sessions/${currentSession.id}/export-pdf`), { credentials: "include" });
       if (!response.ok) {
         throw new Error('Export failed');
       }

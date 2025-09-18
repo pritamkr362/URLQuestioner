@@ -5,6 +5,7 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/queryClient";
+import { apiUrl } from "@/lib/api";
 import { useToast } from "@/hooks/use-toast";
 import type { Message } from "@shared/schema";
 
@@ -32,6 +33,11 @@ export default function ChatInterface({ sessionId, topic }: ChatInterfaceProps) 
 
   const { data: modelsData } = useQuery<ModelsResponse>({
     queryKey: ['/api/models'],
+    queryFn: async () => {
+      const res = await fetch(apiUrl('/api/models'), { credentials: 'include' });
+      if (!res.ok) throw new Error(`${res.status}: ${(await res.text()) || res.statusText}`);
+      return res.json();
+    },
   });
 
   const { data: messages = [], isLoading } = useQuery<Message[]>({

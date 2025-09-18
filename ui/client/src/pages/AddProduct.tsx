@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import axios from 'axios';
+import { apiUrl } from "@/lib/api";
 
 const AddProduct: React.FC = () => {
     const [name, setName] = useState('');
@@ -26,7 +27,7 @@ const AddProduct: React.FC = () => {
         }
 
         try {
-            await axios.post('http://localhost:5000/api/products', formData, {
+            await axios.post(apiUrl('/api/products'), formData, {
                 headers: {
                     'Content-Type': 'multipart/form-data',
                     'x-auth-token': token,

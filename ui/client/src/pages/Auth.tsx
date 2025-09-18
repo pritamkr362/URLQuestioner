@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import axios from 'axios';
+import { apiUrl } from "@/lib/api";
 
 const Auth: React.FC = () => {
     const [isLogin, setIsLogin] = useState(true);
@@ -11,7 +12,7 @@ const Auth: React.FC = () => {
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
         try {
-            const url = isLogin ? 'http://localhost:5000/api/auth/login' : 'http://localhost:5000/api/auth/register';
+            const url = isLogin ? apiUrl('/api/auth/login') : apiUrl('/api/auth/register');
             const payload = isLogin ? { email, password } : { username, email, password };
             const res = await axios.post(url, payload);
             setMessage(isLogin ? 'Login successful!' : 'Registration successful!');

@@ -1,0 +1,298 @@
+{
+  "openapi": "3.0.3",
+  "info": {
+    "title": "URLQuestioner API",
+    "version": "1.0.0"
+  },
+  "servers": [
+    {
+      "url": "/",
+      "description": "Relative to current host"
+    }
+  ],
+  "paths": {
+    "/api/health": {
+      "get": {
+        "summary": "Health check",
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        }
+      }
+    },
+    "/api/extract-content": {
+      "post": {
+        "summary": "Extract content from URL",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "url": { "type": "string" },
+                  "topic": { "type": "string" },
+                  "preferredModel": { "type": "string" }
+                },
+                "required": ["url", "topic"]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": { "description": "Content extracted successfully" }
+        }
+      }
+    },
+    "/api/extract-pdf": {
+      "post": {
+        "summary": "Extract content from PDF",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "pdf": { "type": "string", "format": "binary" },
+                  "topic": { "type": "string" },
+                  "preferredModel": { "type": "string" }
+                },
+                "required": ["pdf", "topic"]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": { "description": "PDF processed successfully" }
+        }
+      }
+    },
+    "/api/create-topic-session": {
+      "post": {
+        "summary": "Create topic-only session",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "topic": { "type": "string" },
+                  "preferredModel": { "type": "string" }
+                },
+                "required": ["topic"]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": { "description": "Topic session created" }
+        }
+      }
+    },
+    "/api/sessions": {
+      "get": {
+        "summary": "Get all content sessions",
+        "responses": {
+          "200": { "description": "List of sessions" }
+        }
+      }
+    },
+    "/api/sessions/{id}": {
+      "get": {
+        "summary": "Get session by ID",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": { "type": "string" }
+          }
+        ],
+        "responses": {
+          "200": { "description": "Session details" },
+          "404": { "description": "Session not found" }
+        }
+      }
+    },
+    "/api/sessions/{sessionId}/ask": {
+      "post": {
+        "summary": "Ask question in session",
+        "parameters": [
+          {
+            "name": "sessionId",
+            "in": "path",
+            "required": true,
+            "schema": { "type": "string" }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "question": { "type": "string" },
+                  "preferredModel": { "type": "string" }
+                },
+                "required": ["question"]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": { "description": "Question answered" }
+        }
+      }
+    },
+    "/api/sessions/{sessionId}/messages": {
+      "get": {
+        "summary": "Get session messages",
+        "parameters": [
+          {
+            "name": "sessionId",
+            "in": "path",
+            "required": true,
+            "schema": { "type": "string" }
+          }
+        ],
+        "responses": {
+          "200": { "description": "List of messages" }
+        }
+      }
+    },
+    "/api/sessions/{sessionId}/export-pdf": {
+      "get": {
+        "summary": "Export session as PDF",
+        "parameters": [
+          {
+            "name": "sessionId",
+            "in": "path",
+            "required": true,
+            "schema": { "type": "string" }
+          }
+        ],
+        "responses": {
+          "200": { "description": "PDF export data" }
+        }
+      }
+    },
+    "/api/generate-mcq-url": {
+      "post": {
+        "summary": "Generate MCQs from URL",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "url": { "type": "string" },
+                  "topic": { "type": "string" },
+                  "customHeader": { "type": "string" },
+                  "numberOfQuestions": { "type": "integer" },
+                  "difficultyLevel": { "type": "string" },
+                  "includeAnswers": { "type": "boolean" },
+                  "preferredModel": { "type": "string" },
+                  "language": { "type": "string" }
+                },
+                "required": ["url", "topic"]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": { "description": "MCQs generated" }
+        }
+      }
+    },
+    "/api/generate-mcq-pdf": {
+      "post": {
+        "summary": "Generate MCQs from PDF",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "pdf": { "type": "string", "format": "binary" },
+                  "topic": { "type": "string" },
+                  "customHeader": { "type": "string" },
+                  "numberOfQuestions": { "type": "integer" },
+                  "difficultyLevel": { "type": "string" },
+                  "includeAnswers": { "type": "boolean" },
+                  "preferredModel": { "type": "string" },
+                  "language": { "type": "string" }
+                },
+                "required": ["pdf", "topic"]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": { "description": "MCQs generated from PDF" }
+        }
+      }
+    },
+    "/api/generate-mcq-topic": {
+      "post": {
+        "summary": "Generate MCQs from topic",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "topic": { "type": "string" },
+                  "subtopic": { "type": "string" },
+                  "customHeader": { "type": "string" },
+                  "numberOfQuestions": { "type": "integer" },
+                  "difficultyLevel": { "type": "string" },
+                  "includeAnswers": { "type": "boolean" },
+                  "preferredModel": { "type": "string" },
+                  "language": { "type": "string" }
+                },
+                "required": ["topic"]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": { "description": "MCQs generated from topic" }
+        }
+      }
+    },
+    "/api/sessions/{sessionId}/mcq": {
+      "get": {
+        "summary": "Get MCQ by session ID",
+        "parameters": [
+          {
+            "name": "sessionId",
+            "in": "path",
+            "required": true,
+            "schema": { "type": "string" }
+          }
+        ],
+        "responses": {
+          "200": { "description": "MCQ details" },
+          "404": { "description": "MCQ not found" }
+        }
+      }
+    },
+    "/api/models": {
+      "get": {
+        "summary": "List available AI models",
+        "responses": {
+          "200": {
+            "description": "List of models"
+          }
+        }
+      }
+    }
+  }
+}

@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import axios from 'axios';
+import { apiUrl, assetUrl } from "@/lib/api";
 
 interface Product {
     _id: string;
@@ -24,7 +25,7 @@ const Products: React.FC = () => {
 
     const fetchProducts = async () => {
         try {
-            const res = await axios.get('http://localhost:5000/api/products');
+            const res = await axios.get(apiUrl('/api/products'));
             setProducts(res.data);
         } catch (err: any) {
             setMessage(err.response?.data?.msg || 'Failed to fetch products');
@@ -34,7 +35,7 @@ const Products: React.FC = () => {
     const handleDelete = async (id: string) => {
         if (window.confirm('Are you sure you want to delete this product?')) {
             try {
-                await axios.delete(`http://localhost:5000/api/products/${id}`, {
+                await axios.delete(apiUrl(`/api/products/${id}`), {
                     headers: {
                         'x-auth-token': token,
                     },
@@ -55,7 +56,7 @@ const Products: React.FC = () => {
                 {products.map((product) => (
                     <div key={product._id} style={{ border: '1px solid #ccc', borderRadius: '8px', padding: '15px', display: 'flex', flexDirection: 'column' }}>
                         {product.image && (
-                            <img src={`http://localhost:5000${product.image}`} alt={product.name} style={{ width: '100%', height: '200px', objectFit: 'cover', borderRadius: '4px', marginBottom: '10px' }} />
+                            <img src={assetUrl(product.image)} alt={product.name} style={{ width: '100%', height: '200px', objectFit: 'cover', borderRadius: '4px', marginBottom: '10px' }} />
                         )}
                         <h3>{product.name}</h3>
                         <p>{product.description}</p>

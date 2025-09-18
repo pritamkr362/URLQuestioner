@@ -6,6 +6,7 @@ import { Label } from "@/components/ui/label";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest } from "@/lib/queryClient";
+import { apiUrl } from "@/lib/api";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import ContentPreview from "@/components/content-preview";
 import ChatInterface from "@/components/chat-interface";
@@ -50,6 +51,11 @@ export default function Discuss({ onSessionCreated }: ContentInputFormProps) {
 
   const { data: modelsData } = useQuery<ModelsResponse>({
     queryKey: ['/api/models'],
+    queryFn: async () => {
+      const res = await fetch(apiUrl('/api/models'), { credentials: 'include' });
+      if (!res.ok) throw new Error(`${res.status}: ${(await res.text()) || res.statusText}`);
+      return res.json();
+    },
   });
 
   const { data: currentSession } = useQuery<ContentSession>({
@@ -69,7 +75,7 @@ export default function Discuss({ onSessionCreated }: ContentInputFormProps) {
         endpoint = "/api/extract-content";
         body.url = url;
       } else if (activeTab === "pdf") {
-        endpoint = "/api/extract-content-pdf";
+        endpoint = "/api/extract-pdf";
         if (!pdfFile) {
           throw new Error("PDF file is required");
         }
@@ -77,14 +83,14 @@ export default function Discuss({ onSessionCreated }: ContentInputFormProps) {
         Object.entries(body).forEach(([key, value]) => formData.append(key, value as any));
         formData.append("pdf", pdfFile);
         
-        const response = await fetch(endpoint, { method: "POST", body: formData });
+        const response = await fetch(apiUrl(endpoint), { method: "POST", body: formData, credentials: "include" });
         if (!response.ok) {
           const errorData = await response.json();
           throw new Error(errorData.message || "PDF content extraction failed");
         }
         return response.json() as Promise<ExtractContentResponse>;
       } else if (activeTab === "topic-only") {
-        endpoint = "/api/extract-content-topic";
+        endpoint = "/api/create-topic-session";
         body.topic = topic === "custom" ? customTopic : topic;
       } else {
         throw new Error("Please select a content source");
@@ -108,7 +114,7 @@ export default function Discuss({ onSessionCreated }: ContentInputFormProps) {
     onError: (error) => {
       toast({
         title: "Extraction failed",
-        description: error.message,
+        description: (error as Error).message,
         variant: "destructive",
       });
     },

@@ -4,12 +4,18 @@ const OPENROUTER_BASE_URL = "https://openrouter.ai/api/v1";
 
 // Model configuration with their corresponding API keys
 const MODEL_CONFIG = {
-  'deepseek/deepseek-chat-v3.1:free': 'OPENAI_API_KEY_DEEPSEEK',
-  'openai/gpt-oss-120b:free': 'OPENAI_API_KEY_GPTOSS', 
-  'qwen/qwen3-4b:free': 'OPENAI_API_KEY_QWEN',
-  'meta-llama/llama-3.1-8b-instruct:free': 'OPENROUTER_API_KEY',
-  'microsoft/phi-3-mini-128k-instruct:free': 'OPENROUTER_API_KEY',
-  'google/gemma-2-9b-it:free': 'OPENROUTER_API_KEY',
+  'deepseek/deepseek-chat-v3.1:free': 'OPENAI_API_KEY_MAIN',
+  'openai/gpt-oss-120b:free': 'OPENAI_API_KEY_MAIN', 
+  'qwen/qwen3-4b:free': 'OPENAI_API_KEY_MAIN',
+  'meta-llama/llama-3.1-8b-instruct:free': 'OPENAI_API_KEY_MAIN',
+  'microsoft/phi-3-mini-128k-instruct:free': 'OPENAI_API_KEY_MAIN',
+  'google/gemma-2-9b-it:free': 'OPENAI_API_KEY_MAIN',
+  'openrouter/sonoma-sky-alpha': 'OPENAI_API_KEY_MAIN',
+  'openrouter/sonoma-dusk-alpha': 'OPENAI_API_KEY_MAIN',
+  'nvidia/nemotron-nano-9b-v2:free': 'OPENAI_API_KEY_MAIN',
+  'deepseek/deepseek-r1-0528:free': 'OPENAI_API_KEY_MAIN',
+  'microsoft/mai-ds-r1:free': 'OPENAI_API_KEY_MAIN',
+  'meta-llama/llama-4-maverick:free': 'OPENAI_API_KEY_MAIN',
 };
 
 // Available models with fallback order
@@ -35,10 +41,22 @@ interface OpenRouterResponse {
 async function callOpenRouter(messages: OpenRouterMessage[], model: string): Promise<string> {
   // Get the appropriate API key for this model
   const apiKeyName = MODEL_CONFIG[model as keyof typeof MODEL_CONFIG] || 'OPENROUTER_API_KEY';
-  const apiKey = process.env[apiKeyName];
+  
+  // Try main key first, then backup key
+  const mainKey = process.env['OPENAI_API_KEY_MAIN'];
+  const backupKey = process.env['OPENAI_API_KEY_BACK_UP'];
+  
+  if (!mainKey && !backupKey) {
+    throw new Error(`Neither OPENAI_API_KEY_MAIN nor OPENAI_API_KEY_BACK_UP found for model ${model}`);
+  }
+  
+  // Try main key first
+  let apiKey = mainKey;
+  let keyType = 'MAIN';
   
   if (!apiKey) {
-    throw new Error(`API key ${apiKeyName} not found for model ${model}`);
+    apiKey = backupKey;
+    keyType = 'BACKUP';
   }
   
   const response = await fetch(`${OPENROUTER_BASE_URL}/chat/completions`, {
@@ -56,6 +74,31 @@ async function callOpenRouter(messages: OpenRouterMessage[], model: string): Pro
       max_tokens: 2000
     })
   });
+
+  // If main key fails and we have a backup key, try the backup
+  if (!response.ok && mainKey && backupKey && keyType === 'MAIN') {
+    console.log(`Main key failed for model ${model}, trying backup key...`);
+    const backupResponse = await fetch(`${OPENROUTER_BASE_URL}/chat/completions`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "Authorization": `Bearer ${backupKey}`,
+        "HTTP-Referer": "https://localhost:5000",
+        "X-Title": "ContentQuery AI"
+      },
+      body: JSON.stringify({
+        model,
+        messages,
+        temperature: 0.7,
+        max_tokens: 2000
+      })
+    });
+    
+    if (backupResponse.ok) {
+      const backupData = await backupResponse.json() as OpenRouterResponse;
+      return backupData.choices[0]?.message?.content || "No response generated";
+    }
+  }
 
   if (!response.ok) {
     const errorText = await response.text();

@@ -6,6 +6,7 @@ import { Label } from "@/components/ui/label";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest } from "@/lib/queryClient";
+import { apiUrl } from "@/lib/api";
 import { useQuery } from "@tanstack/react-query";
 import MCQTest from "@/components/mcq-test";
 
@@ -42,6 +43,11 @@ export default function MCQGenerator() {
 
   const { data: modelsData } = useQuery<ModelsResponse>({
     queryKey: ['/api/models'],
+    queryFn: async () => {
+      const res = await fetch(apiUrl('/api/models'), { credentials: 'include' });
+      if (!res.ok) throw new Error(`${res.status}: ${(await res.text()) || res.statusText}`);
+      return res.json();
+    },
   });
 
   // Common MCQ generation handler
@@ -129,7 +135,7 @@ export default function MCQGenerator() {
         Object.entries(body).forEach(([key, value]) => formData.append(key, value as any));
         formData.append("pdf", pdfFile!);
         
-        const response = await fetch(endpoint, { method: "POST", body: formData });
+        const response = await fetch(apiUrl(endpoint), { method: "POST", body: formData, credentials: "include" });
         if (!response.ok) {
           const errorData = await response.json();
           throw new Error(errorData.message || "PDF MCQ generation failed");
